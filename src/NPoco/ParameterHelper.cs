@@ -177,7 +177,7 @@ namespace NPoco
                         p.GetType().GetProperty("SqlDbType").SetValue(p, SqlDbType.NText, null);
                     }
 
-                    p.Size = Math.Max(strValue.Length + 1, 4000); // Help query plan caching by using common size
+                    p.Size = strValue.Length <= 4000 ? 4000 : -1; // Help query plan caching by using common size
                     p.Value = value;
                 }
             }

@@ -3,10 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Text;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
+using NPoco.fastJSON;
 using NPoco.Internal;
 using NPoco.Linq;
 
@@ -39,14 +39,14 @@ namespace NPoco.Expressions
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != this.GetType()) return false;
-            return Equals((SelectMember) obj);
+            return Equals((SelectMember)obj);
         }
 
         public override int GetHashCode()
         {
             unchecked
             {
-                return ((EntityType != null ? EntityType.GetHashCode() : 0)*397) ^ (PocoColumn != null ? PocoColumn.GetHashCode() : 0);
+                return ((EntityType != null ? EntityType.GetHashCode() : 0) * 397) ^ (PocoColumn != null ? PocoColumn.GetHashCode() : 0);
             }
         }
     }
@@ -94,7 +94,7 @@ namespace NPoco.Expressions
         int? ISqlExpression.Skip { get { return Skip; } }
         Type ISqlExpression.Type { get { return _type; } }
         object[] ISqlExpression.Params { get { return Context.Params; } }
-        string ISqlExpression.TableHint { get{ return tableHint; }}
+        string ISqlExpression.TableHint { get { return tableHint; } }
 
         string ISqlExpression.ApplyPaging(string sql, IEnumerable<PocoColumn[]> columns, Dictionary<string, JoinData> joinSqlExpressions)
         {
@@ -197,7 +197,7 @@ namespace NPoco.Expressions
             var exp = PartialEvaluator.Eval(fields, CanBeEvaluatedLocally);
             Visit(exp);
             _projection = false;
-            var proj = selectMembers.Union(generalMembers.Select(x=>new SelectMember() { EntityType = x.EntityType, PocoColumn = x.PocoColumn, PocoColumns = x.PocoColumns })).ToList();
+            var proj = selectMembers.Union(generalMembers.Select(x => new SelectMember() { EntityType = x.EntityType, PocoColumn = x.PocoColumn, PocoColumns = x.PocoColumns })).ToList();
             selectMembers.Clear();
             return proj;
         }
@@ -452,9 +452,9 @@ namespace NPoco.Expressions
                     continue;
 
                 if (Context.UpdateFields.Count > 0 && !Context.UpdateFields.Contains(fieldDef.Value.MemberInfoData.Name)) continue; // added
-                
+
                 object value = fieldDef.Value.GetColumnValue(_pocoData, item, (pocoColumn, val) => _database.ProcessMapper(pocoColumn, val));
-                
+
                 if (excludeDefaults && (value == null || value.Equals(MappingHelper.GetDefault(value.GetType())))) continue; //GetDefaultValue?
 
                 if (setFields.Length > 0)
@@ -492,13 +492,13 @@ namespace NPoco.Expressions
                        "" :
                        " \n" + OrderByExpression);
 
-            return applyPaging ? ApplyPaging(sql.ToString(), ModelDef.QueryColumns.Select(x=> new[] { x.Value }), new Dictionary<string, JoinData>()) : sql.ToString();
+            return applyPaging ? ApplyPaging(sql.ToString(), ModelDef.QueryColumns.Select(x => new[] { x.Value }), new Dictionary<string, JoinData>()) : sql.ToString();
         }
 
         private string GetSelectExpression(bool distinct)
         {
             var selectMembersFromOrderBys = orderByMembers
-                .Select(x => new SelectMember() { PocoColumn = x.PocoColumn, EntityType = x.EntityType, PocoColumns = new[] { x.PocoColumn }})
+                .Select(x => new SelectMember() { PocoColumn = x.PocoColumn, EntityType = x.EntityType, PocoColumns = new[] { x.PocoColumn } })
                 .Where(x => !selectMembers.Any(y => y.EntityType == x.EntityType && y.PocoColumn.MemberInfoData.Name == x.PocoColumn.MemberInfoData.Name));
 
             var morecols = selectMembers.Concat(selectMembersFromOrderBys);
@@ -729,7 +729,7 @@ namespace NPoco.Expressions
                 var result = Visit(lambda.Body);
                 if (result is bool)
                 {
-                    return ((bool) result) ? "1=1" : "1<>1";
+                    return ((bool)result) ? "1=1" : "1<>1";
                 }
             }
             return Visit(lambda.Body);
@@ -831,7 +831,7 @@ namespace NPoco.Expressions
                 }
                 // Chars
                 else if (isLeftMemberAccessString && right is int
-                    && new [] { typeof(char), typeof(char?) }.Contains(leftMemberAccessString.PocoColumn.MemberInfoData.MemberType))
+                    && new[] { typeof(char), typeof(char?) }.Contains(leftMemberAccessString.PocoColumn.MemberInfoData.MemberType))
                 {
                     right = CreateParam(Convert.ToChar(right));
                 }
@@ -906,7 +906,7 @@ namespace NPoco.Expressions
         {
             if (b.Left is MethodCallExpression)
             {
-                var method = (MethodCallExpression) b.Left;
+                var method = (MethodCallExpression)b.Left;
                 if (method.Method.Name == "CompareString"
                     && method.Method.DeclaringType.FullName == "Microsoft.VisualBasic.CompilerServices.Operators")
                 {
@@ -958,7 +958,7 @@ namespace NPoco.Expressions
                         }
                         if (pp != null)
                         {
-                            if (m.Member.Name == "Value") 
+                            if (m.Member.Name == "Value")
                                 return Visit(m1);
                             return new PartialSqlString(GetDateTimeSql(m.Member.Name, Visit(m1)));
                         }
@@ -997,7 +997,7 @@ namespace NPoco.Expressions
                         {
                             EntityType = pocoMember.MemberInfoData.MemberType,
                             PocoColumn = member.PocoColumn,
-                            PocoColumns = new [] { member.PocoColumn }
+                            PocoColumns = new[] { member.PocoColumn }
                         });
                     }
 
@@ -1190,7 +1190,7 @@ namespace NPoco.Expressions
 
         private bool ProcessMethodSearchRecursively(Expression args, ref bool found)
         {
-            if (args.NodeType == ExpressionType.Parameter && args.Type == typeof (T))
+            if (args.NodeType == ExpressionType.Parameter && args.Type == typeof(T))
             {
                 selectMembers.AddRange(_pocoData.QueryColumns.Select(x => new SelectMember { PocoColumn = x.Value, EntityType = _pocoData.Type, PocoColumns = new[] { x.Value } }));
                 return true;
@@ -1312,6 +1312,16 @@ namespace NPoco.Expressions
             }
 
             return e;
+        }
+
+        private Type GetColumnType(object partialSqlString)
+        {
+            return partialSqlString switch
+            {
+                EnumMemberAccess ema => ema.PocoColumn.ColumnType,
+                MemberAccessString mas => mas.PocoColumn.ColumnType,
+                _ => null
+            };
         }
 
         protected virtual List<Object> VisitExpressionList(ReadOnlyCollection<Expression> original)
@@ -1449,7 +1459,7 @@ namespace NPoco.Expressions
 
         private string BuildSelectExpression(List<SelectMember> fields, bool distinct)
         {
-            var cols = fields ?? _pocoData.QueryColumns.Select(x => new SelectMember{ PocoColumn = x.Value, EntityType = _pocoData.Type, PocoColumns = new[] { x.Value }});
+            var cols = fields ?? _pocoData.QueryColumns.Select(x => new SelectMember { PocoColumn = x.Value, EntityType = _pocoData.Type, PocoColumns = new[] { x.Value } });
             return string.Format("SELECT {0}{1} \nFROM {2}{3}",
                 (distinct ? "DISTINCT " : ""),
                     string.Join(", ", cols.Select(x =>
@@ -1458,10 +1468,10 @@ namespace NPoco.Expressions
                         {
                             var pocoColumn = x.PocoColumns.Last();
                             return (PrefixFieldWithTableName
-                                ? _databaseType.EscapeTableName(_pocoData.TableInfo.AutoAlias) 
-                                  + "." + _databaseType.EscapeSqlIdentifier(x.PocoColumn.ColumnName) 
-                                  + " as " + (string.IsNullOrWhiteSpace(pocoColumn.ColumnAlias) 
-                                      ? _databaseType.EscapeSqlIdentifier(pocoColumn.MemberInfoKey) 
+                                ? _databaseType.EscapeTableName(_pocoData.TableInfo.AutoAlias)
+                                  + "." + _databaseType.EscapeSqlIdentifier(x.PocoColumn.ColumnName)
+                                  + " as " + (string.IsNullOrWhiteSpace(pocoColumn.ColumnAlias)
+                                      ? _databaseType.EscapeSqlIdentifier(pocoColumn.MemberInfoKey)
                                       : _databaseType.EscapeSqlIdentifier(pocoColumn.ColumnAlias))
                                 : _databaseType.EscapeSqlIdentifier(x.PocoColumn.ColumnName));
                         }
@@ -1508,18 +1518,98 @@ namespace NPoco.Expressions
             var lambda = Expression.Lambda<Func<object>>(member);
             var getter = lambda.Compile();
 
-            if (quotedColName == null)
-                quotedColName = Visit(m);
+            quotedColName ??= Visit(m);
 
-            var inArgs = ((IEnumerable) getter()).Cast<object>().ToList();
+            var inArgs = ((IEnumerable)getter()).Cast<object>().ToList();
             if (inArgs.Count == 0)
             {
                 return "1 = 0";
             }
 
-            var sIn = FlattenList(inArgs, quotedColName);
-            var statement = string.Format("{0} {1} ({2})", quotedColName, "IN", sIn);
+            var sIn = new StringBuilder();
+
+            var columnType = GetColumnType(quotedColName);
+
+            if (TypeSupportedAsJson(columnType) && inArgs.Count > 5)
+            {
+                if (columnType.IsEnum)
+                {
+                    columnType = Enum.GetUnderlyingType(columnType);
+
+                    inArgs = inArgs.Select(x => Convert.ChangeType(x, columnType)).ToList();
+                }
+                var databaseString = GetDatabaseType(columnType);
+                var paramPlaceholder = CreateParam(JSON.ToJSON(inArgs, new JSONParameters
+                {
+                    UseFastGuid = false
+                }));
+                var text = $"SELECT [s0].[value] FROM OPENJSON({paramPlaceholder}) WITH ([value] {databaseString} '$') AS [s0]";
+                sIn.Append(text);
+            }
+            else
+            {
+                inArgs = RepeatFirstItem(inArgs);
+                sIn.Append(FlattenList(inArgs, quotedColName));
+            }
+
+            var statement = $"{quotedColName} IN ({sIn})";
             return statement;
+        }
+
+
+        /// <summary>
+        /// Repeats the first item in the list to match the specified count.
+        /// </summary>
+        /// <typeparam name="TS">The type of the items in the list.</typeparam>
+        /// <param name="list">The list to repeat the first item from.</param>
+        /// <returns>A new list with the first item repeated to match the specified count.</returns>
+        private static List<TS> RepeatFirstItem<TS>(List<TS> list)
+        {
+            var max = Math.Min(GetNextPowerOfTwo(Math.Max(5, list.Count)), 2000);
+
+            if (list.Count >= max)
+                return list;
+
+            var repeated = new List<TS>(max);
+            for (var i = 0; i < max; i++)
+                repeated.Add(list[i % list.Count]);
+
+            return repeated;
+        }
+
+        /// <summary>
+        /// Gets the next power of two for the given input.
+        /// </summary>
+        /// <param name="input">The input value.</param>
+        /// <returns>The next power of two.</returns>
+        private static int GetNextPowerOfTwo(int input)
+        {
+            var log = Math.Log(input, 2);
+            var logRoundedUp = Math.Ceiling(log);
+            return (int)Math.Pow(2, logRoundedUp);
+        }
+
+        private static bool TypeSupportedAsJson(Type type)
+        {
+            return type == typeof(int) || type == typeof(long) || type == typeof(string) || type == typeof(Guid) || (type.IsEnum && TypeSupportedAsJson(Enum.GetUnderlyingType(type)));
+        }
+
+        private static string GetDatabaseType(Type type)
+        {
+            if (type == typeof(int))
+                return "int";
+            if (type == typeof(long))
+                return "bigint";
+            if (type == typeof(string))
+                return "nvarchar(max)";
+            if (type == typeof(Guid))
+                return "uniqueidentifier";
+            if (type == typeof(short))
+                return "smallint";
+            if (type == typeof(byte))
+                return "tinyint";
+
+            return null;
         }
 
         protected virtual object VisitSqlMethodCall(MethodCallExpression m)
