@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using NPoco.SqlServer;
+using System.Threading;
 
 namespace NPoco.DatabaseTypes
 {
@@ -19,7 +20,7 @@ namespace NPoco.DatabaseTypes
             return true;
         }
 
-        public override string BuildPageQuery(long skip, long take, PagingHelper.SQLParts parts, ref object[] args)
+        public override string BuildPageQuery(long skip, long take, SQLParts parts, ref object[] args)
         {
             return PagingHelper.BuildPaging(skip, take, parts, ref args);
         }
@@ -46,16 +47,16 @@ namespace NPoco.DatabaseTypes
             return string.Format("INSERT INTO {0}{1} DEFAULT VALUES", EscapeTableName(tableName), GetInsertOutputClause(primaryKeyName, useOutputClause));
         }
 
-        public override object ExecuteInsert<T>(Database db, DbCommand cmd, string primaryKeyName, bool useOutputClause, T poco, object[] args)
+        public override object ExecuteInsert<T>(IDatabase db, DbCommand cmd, string primaryKeyName, bool useOutputClause, T poco, object[] args)
         {
             AdjustSqlInsertCommandText(cmd, useOutputClause);
             return ((IDatabaseHelpers)db).ExecuteScalarHelper(cmd);
         }
 
-        public override Task<object> ExecuteInsertAsync<T>(Database db, DbCommand cmd, string primaryKeyName, bool useOutputClause, T poco, object[] args)
+        public override Task<object> ExecuteInsertAsync<T>(IDatabase db, DbCommand cmd, string primaryKeyName, bool useOutputClause, T poco, object[] args, CancellationToken cancellationToken = default)
         {
             AdjustSqlInsertCommandText(cmd, useOutputClause);
-            return ((IDatabaseHelpers)db).ExecuteScalarHelperAsync(cmd);
+            return ((IDatabaseHelpers)db).ExecuteScalarHelperAsync(cmd, cancellationToken);
         }
 
         public override string GetExistsSql()
@@ -81,9 +82,9 @@ namespace NPoco.DatabaseTypes
             SqlBulkCopyHelper.BulkInsert(db, pocos, options);
         }
 
-        public override Task InsertBulkAsync<T>(IDatabase db, IEnumerable<T> pocos, InsertBulkOptions options)
+        public override Task InsertBulkAsync<T>(IDatabase db, IEnumerable<T> pocos, InsertBulkOptions options, CancellationToken cancellationToken = default)
         {
-            return SqlBulkCopyHelper.BulkInsertAsync(db, pocos, options);
+            return SqlBulkCopyHelper.BulkInsertAsync(db, pocos, options, cancellationToken);
         }
 
         public override string GetProviderName()
@@ -100,41 +101,33 @@ namespace NPoco.DatabaseTypes
             return base.ProcessDefaultMappings(pocoColumn, value);
         }
 
-
         public override string FormatCommand(string sql, object[] args)
         {
             if (sql == null)
                 return "";
 
             var sb = new StringBuilder();
-            if (args != null && args.Length > 0)
+            
+            for (int i = 0; i < args.Length; i++)
             {
-                for (int i = 0; i < args.Length; i++)
-                {
-                    var value = args[i];
-                    var formatted = args[i] as FormattedParameter;
-                    if (formatted != null)
-                    {
-                        value = formatted.Value;
-                    }
+                var p = args[i] as SqlParameter;
+                if (p is null)
+                    continue;
 
-                    var p = new SqlParameter();
-                    ParameterHelper.SetParameterValue(this, p, value);
-                    if (p.Size == 0 || p.SqlDbType == SqlDbType.UniqueIdentifier)
+                if (p.Size == 0 || p.SqlDbType == SqlDbType.UniqueIdentifier)
+                {
+                    if ((p.Value == DBNull.Value || p.Value == null) && (p.SqlDbType == SqlDbType.NVarChar || p.SqlDbType == SqlDbType.VarChar))
                     {
-                        if (value == null && (p.SqlDbType == SqlDbType.NVarChar || p.SqlDbType == SqlDbType.VarChar))
-                        {
-                            sb.AppendFormat("DECLARE {0}{1} {2} = null\n", GetParameterPrefix(string.Empty), i, p.SqlDbType);
-                        }
-                        else
-                        {
-                            sb.AppendFormat("DECLARE {0}{1} {2} = '{3}'\n", GetParameterPrefix(string.Empty), i, p.SqlDbType, value);
-                        }
+                        sb.AppendFormat("DECLARE {0}{1} {2} = null\n", GetParameterPrefix(string.Empty), i, p.SqlDbType);
                     }
                     else
                     {
-                        sb.AppendFormat("DECLARE {0}{1} {2}[{3}] = '{4}'\n", GetParameterPrefix(string.Empty), i, p.SqlDbType, p.Size, value);
+                        sb.AppendFormat("DECLARE {0}{1} {2} = '{3}'\n", GetParameterPrefix(string.Empty), i, p.SqlDbType, p.Value);
                     }
+                }
+                else
+                {
+                    sb.AppendFormat("DECLARE {0}{1} {2}({3}) = '{4}'\n", GetParameterPrefix(string.Empty), i, p.SqlDbType, p.Size, p.Value);
                 }
             }
 

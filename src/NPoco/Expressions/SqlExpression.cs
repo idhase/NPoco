@@ -12,69 +12,8 @@ using NPoco.Linq;
 
 namespace NPoco.Expressions
 {
-    public class OrderByMember
+    public abstract class SqlExpression<T> : ISqlExpression<T>
     {
-        public Type EntityType { get; set; }
-        public PocoColumn PocoColumn { get; set; }
-        public PocoColumn[] PocoColumns { get; set; }
-        public string AscDesc { get; set; }
-    }
-
-    public class SelectMember : IEquatable<SelectMember>
-    {
-        public Type EntityType { get; set; }
-        public string SelectSql { get; set; }
-        public PocoColumn PocoColumn { get; set; }
-        public PocoColumn[] PocoColumns { get; set; }
-
-        public bool Equals(SelectMember other)
-        {
-            if (ReferenceEquals(null, other)) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return Equals(EntityType, other.EntityType) && Equals(PocoColumn, other.PocoColumn);
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((SelectMember)obj);
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return ((EntityType != null ? EntityType.GetHashCode() : 0) * 397) ^ (PocoColumn != null ? PocoColumn.GetHashCode() : 0);
-            }
-        }
-    }
-
-    public class GeneralMember
-    {
-        public Type EntityType { get; set; }
-        public PocoColumn PocoColumn { get; set; }
-        public PocoColumn[] PocoColumns { get; set; }
-    }
-
-    public interface ISqlExpression
-    {
-        List<OrderByMember> OrderByMembers { get; }
-        int? Rows { get; }
-        int? Skip { get; }
-        string WhereSql { get; }
-        object[] Params { get; }
-        Type Type { get; }
-        List<SelectMember> SelectMembers { get; }
-        List<GeneralMember> GeneralMembers { get; }
-        string ApplyPaging(string sql, IEnumerable<PocoColumn[]> columns, Dictionary<string, JoinData> joinSqlExpressions);
-        string TableHint { get; }
-    }
-
-    public abstract class SqlExpression<T> : ISqlExpression
-    {
-        private Expression<Func<T, bool>> underlyingExpression;
         private List<string> orderByProperties = new List<string>();
         private List<OrderByMember> orderByMembers = new List<OrderByMember>();
         private List<SelectMember> selectMembers = new List<SelectMember>();
@@ -105,7 +44,7 @@ namespace NPoco.Expressions
         protected string EscapeChar = "\\";
         private PocoData _pocoData;
         private readonly IDatabase _database;
-        private readonly DatabaseType _databaseType;
+        private readonly IDatabaseType _databaseType;
         private bool PrefixFieldWithTableName { get; set; }
         private Type _type { get; set; }
 
@@ -120,7 +59,7 @@ namespace NPoco.Expressions
             Context = new SqlExpressionContext(this);
         }
 
-        public class SqlExpressionContext
+        public class SqlExpressionContext : ISqlExpression<T>.ISqlExpressionContext
         {
             private readonly SqlExpression<T> _expression;
 
@@ -181,7 +120,7 @@ namespace NPoco.Expressions
         /// <typeparam name='TKey'>
         /// objectWithProperties
         /// </typeparam>
-        public virtual SqlExpression<T> Select<TKey>(Expression<Func<T, TKey>> fields)
+        public virtual ISqlExpression<T> Select<TKey>(Expression<Func<T, TKey>> fields)
         {
             sep = string.Empty;
             selectMembers.Clear();
@@ -207,14 +146,14 @@ namespace NPoco.Expressions
             return SelectProjection(fields);
         }
 
-        public virtual SqlExpression<T> Where(string sqlFilter, params object[] filterParams)
+        public virtual ISqlExpression<T> Where(string sqlFilter, params object[] filterParams)
         {
             if (string.IsNullOrEmpty(sqlFilter))
                 return this;
 
             sqlFilter = ParameterHelper.ProcessParams(sqlFilter, filterParams, _params);
 
-            appendSqlFilter(sqlFilter);
+            appendSqlFilter("(" + sqlFilter + ")");
 
             return this;
         }
@@ -238,7 +177,7 @@ namespace NPoco.Expressions
             return onSql;
         }
 
-        public virtual SqlExpression<T> Where(Expression<Func<T, bool>> predicate)
+        public virtual ISqlExpression<T> Where(Expression<Func<T, bool>> predicate)
         {
             if (predicate != null)
             {
@@ -246,22 +185,16 @@ namespace NPoco.Expressions
             }
             else
             {
-                underlyingExpression = null;
                 whereExpression = string.Empty;
             }
 
             return this;
         }
 
-        protected virtual SqlExpression<T> And(Expression<Func<T, bool>> predicate)
+        protected virtual ISqlExpression<T> And(Expression<Func<T, bool>> predicate)
         {
             if (predicate != null)
             {
-                if (underlyingExpression == null)
-                    underlyingExpression = predicate;
-                else
-                    underlyingExpression = underlyingExpression.And(predicate);
-
                 ProcessInternalExpression(predicate);
             }
             return this;
@@ -303,7 +236,7 @@ namespace NPoco.Expressions
                    expression.NodeType != ExpressionType.Lambda;
         }
 
-        public virtual SqlExpression<T> GroupBy<TKey>(Expression<Func<T, TKey>> keySelector)
+        public virtual ISqlExpression<T> GroupBy<TKey>(Expression<Func<T, TKey>> keySelector)
         {
             sep = string.Empty;
             groupBy = Visit(keySelector).ToString();
@@ -311,7 +244,7 @@ namespace NPoco.Expressions
             return this;
         }
 
-        public virtual SqlExpression<T> OrderBy<TKey>(Expression<Func<T, TKey>> keySelector)
+        public virtual ISqlExpression<T> OrderBy<TKey>(Expression<Func<T, TKey>> keySelector)
         {
             sep = string.Empty;
             orderByProperties.Clear();
@@ -325,7 +258,7 @@ namespace NPoco.Expressions
             return this;
         }
 
-        public virtual SqlExpression<T> ThenBy<TKey>(Expression<Func<T, TKey>> keySelector)
+        public virtual ISqlExpression<T> ThenBy<TKey>(Expression<Func<T, TKey>> keySelector)
         {
             sep = string.Empty;
             generalMembers.Clear();
@@ -337,7 +270,7 @@ namespace NPoco.Expressions
             return this;
         }
 
-        public virtual SqlExpression<T> OrderByDescending<TKey>(Expression<Func<T, TKey>> keySelector)
+        public virtual ISqlExpression<T> OrderByDescending<TKey>(Expression<Func<T, TKey>> keySelector)
         {
             sep = string.Empty;
             orderByProperties.Clear();
@@ -351,7 +284,7 @@ namespace NPoco.Expressions
             return this;
         }
 
-        public virtual SqlExpression<T> ThenByDescending<TKey>(Expression<Func<T, TKey>> keySelector)
+        public virtual ISqlExpression<T> ThenByDescending<TKey>(Expression<Func<T, TKey>> keySelector)
         {
             sep = string.Empty;
             generalMembers.Clear();
@@ -375,7 +308,7 @@ namespace NPoco.Expressions
             }
         }
 
-        public virtual void TableHint(string hint)
+        public virtual void Hint(string hint)
         {
             tableHint += " " + hint;
         }
@@ -389,7 +322,7 @@ namespace NPoco.Expressions
         /// <param name='rows'>
         /// Number of rows returned by a SELECT statement
         /// </param>
-        public virtual SqlExpression<T> Limit(int skip, int rows)
+        public virtual ISqlExpression<T> Limit(int skip, int rows)
         {
             Rows = rows;
             Skip = skip;
@@ -402,7 +335,7 @@ namespace NPoco.Expressions
         /// <param name='rows'>
         /// Number of rows returned by a SELECT statement
         /// </param>
-        public virtual SqlExpression<T> Limit(int rows)
+        public virtual ISqlExpression<T> Limit(int rows)
         {
             Rows = rows;
             Skip = 0;
@@ -418,7 +351,7 @@ namespace NPoco.Expressions
         /// <typeparam name='TKey'>
         /// objectWithProperties
         /// </typeparam>
-        public virtual SqlExpression<T> Update<TKey>(Expression<Func<T, TKey>> fields)
+        public virtual ISqlExpression<T> Update<TKey>(Expression<Func<T, TKey>> fields)
         {
             sep = string.Empty;
             generalMembers.Clear();
@@ -1087,7 +1020,7 @@ namespace NPoco.Expressions
 
         string paramPrefix;
         private bool _projection;
-        public SqlExpressionContext Context { get; private set; }
+        public ISqlExpression<T>.ISqlExpressionContext Context { get; private set; }
 
         protected virtual object VisitConstant(ConstantExpression c)
         {
@@ -1174,6 +1107,15 @@ namespace NPoco.Expressions
 
             if (_projection && VisitInnerMethodCall(m))
                 return null;
+
+            // Handle conversion operators (op_Implicit, op_Explicit) which cannot be dynamically invoked
+            // These typically wrap constant values, so we visit the operand instead
+            if (m.Method.IsSpecialName && 
+                (m.Method.Name == "op_Implicit" || m.Method.Name == "op_Explicit") && 
+                m.Arguments.Count == 1)
+            {
+                return Visit(m.Arguments[0]);
+            }
 
             return Expression.Lambda(m).Compile().DynamicInvoke();
         }
@@ -1268,6 +1210,18 @@ namespace NPoco.Expressions
                     Expression memberExpr = m.Arguments[0];
                     if (memberExpr.NodeType == ExpressionType.MemberAccess)
                         memberExpr = (m.Arguments[0] as MemberExpression);
+
+                    // If args[0] is already an evaluated value (not a PartialSqlString), use it directly
+                    if (!(args[0] is PartialSqlString) && args[0] is IEnumerable enumerable)
+                    {
+                        var inArgs = enumerable.Cast<object>().ToList();
+                        if (inArgs.Count == 0)
+                        {
+                            return new PartialSqlString("1 = 0");
+                        }
+                        var sIn = FlattenList(inArgs, args[1]);
+                        return new PartialSqlString(string.Format("{0} {1} ({2})", args[1], "IN", sIn));
+                    }
 
                     return new PartialSqlString(BuildInStatement(memberExpr, args[1]));
 
@@ -1496,7 +1450,7 @@ namespace NPoco.Expressions
             var parms = _params.Select(x => x).ToArray();
 
             // Split the SQL
-            PagingHelper.SQLParts parts;
+            SQLParts parts;
             if (!PagingHelper.SplitSQL(sql, out parts)) throw new Exception("Unable to parse SQL statement for paged query");
 
             if (columns != null && columns.Any() && _databaseType.UseColumnAliases())

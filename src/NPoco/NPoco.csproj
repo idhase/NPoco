@@ -6,6 +6,11 @@
     <AssemblyName>NPoco</AssemblyName>
     <PackageId>NPoco</PackageId>
     <VersionPrefix>5.8.1</VersionPrefix>
+    <TargetFrameworks>net462;netstandard2.0;netstandard2.1;net8.0;net10.0</TargetFrameworks>
+    <AssemblyName>NPoco</AssemblyName>
+    <PackageId>NPoco</PackageId>
+    <VersionPrefix>5.7.1</VersionPrefix>
+    <VersionPrefix>6.2.0</VersionPrefix>
     <Authors>Adam Schröder</Authors>
     <PackageTags>orm;sql;micro-orm;database;mvc</PackageTags>
     <PackageProjectUrl>https://github.com/schotime/NPoco</PackageProjectUrl>
@@ -24,11 +29,17 @@
 	<PackageReference Condition="'$(TargetFramework)' == 'net462' " Include="System.ValueTuple" Version="4.5.0" />
 	<PackageReference Condition="'$(TargetFramework)' == 'net462' or '$(TargetFramework)' == 'netstandard2.0' " Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.1" />
     <PackageReference Include="System.Linq.Async" Version="5.0.0" />
+	<PackageReference Condition="'$(TargetFramework)' == 'net462' or '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netstandard2.1'" Include="System.Linq.Async" Version="5.0.0" />
+	<PackageReference Condition="'$(TargetFramework)' == 'net8.0'" Include="System.Linq.Async" Version="6.0.1" />
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
   </ItemGroup>
 
   <ItemGroup>
 	<None Include="LICENSE.txt" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NPoco.Abstractions\NPoco.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

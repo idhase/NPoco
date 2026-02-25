@@ -4,6 +4,8 @@
 	<Description>An extremely easy to use Micro-ORM supporting Sql Server.</Description>
 	<VersionPrefix>5.8.0</VersionPrefix>
 	<TargetFrameworks>net462;netstandard2.0;netstandard2.1</TargetFrameworks>
+	<VersionPrefix>6.2.0</VersionPrefix>
+	<TargetFrameworks>net462;netstandard2.0;netstandard2.1;net8.0;net10.0</TargetFrameworks>
 	<AssemblyName>NPoco.SqlServer.SystemData</AssemblyName>
 	<PackageId>NPoco.SqlServer.SystemData</PackageId>
 	<Authors>Adam Schröder</Authors>
@@ -20,6 +22,8 @@
   <ItemGroup>
 	<PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
 	<PackageReference Include="Polly" Version="8.4.1" />
+	<PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
+	<PackageReference Include="Polly" Version="8.5.0" />
   </ItemGroup>
 
 </Project>

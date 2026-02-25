@@ -1,22 +1,24 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Data.Common;
 using System.Reflection;
 
 namespace NPoco
 {
-    public class MapperCollection : List<IMapper>
+    public class MapperCollection : List<IMapper>, IMapperCollection
     {
         public IColumnSerializer ColumnSerializer { get; set; } = DatabaseFactory.ColumnSerializer;
-        internal readonly Dictionary<Type, ObjectFactoryDelegate> Factories = new Dictionary<Type, ObjectFactoryDelegate>();
-        public delegate object ObjectFactoryDelegate(DbDataReader dataReader);
+        internal readonly Dictionary<Type, IMapperCollection.ObjectFactoryDelegate> Factories = new Dictionary<Type, IMapperCollection.ObjectFactoryDelegate>();
+        
 
         public MapperCollection()
         {
             Factories.Add(typeof(object), x => new PocoExpando());
             Factories.Add(typeof(IDictionary<string, object>), x => new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase));
             Factories.Add(typeof(Dictionary<string, object>), x => new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase));
+            Factories.Add(typeof(OrderedDictionary), x => new OrderedDictionary(StringComparer.OrdinalIgnoreCase));
         }
 
         public void RegisterFactory<T>(Func<DbDataReader, T> factory)
@@ -24,7 +26,7 @@ namespace NPoco
             Factories[typeof(T)] = x => factory(x);
         }
 
-        public ObjectFactoryDelegate GetFactory(Type type)
+        public IMapperCollection.ObjectFactoryDelegate GetFactory(Type type)
         {
             return Factories.ContainsKey(type) ? Factories[type] : null;
         }
@@ -60,19 +62,19 @@ namespace NPoco
         private static readonly Cache<object, Func<object, object>> ToDbConverterCache = new();
         private static readonly Cache<object, Func<object, object>> FromDbConverterCache = new();
 
-        internal Func<object, object> FindFromDbConverter(Type destType, Type srcType)
+        public Func<object, object> FindFromDbConverter(Type destType, Type srcType)
         {
             var key = new { DestType = destType, SrcType = srcType };
             return FromDbConverterCache.Get(key, () => Find(x => x.GetFromDbConverter(destType, srcType)));
         }
 
-        internal Func<object, object> FindFromDbConverter(MemberInfo destInfo, Type srcType)
+        public Func<object, object> FindFromDbConverter(MemberInfo destInfo, Type srcType)
         {
             var key = new { DestInfo = destInfo, SrcType = srcType };
             return FromDbConverterCache.Get(key, () => Find(x => x.GetFromDbConverter(destInfo, srcType)));
         }
 
-        internal Func<object, object> FindToDbConverter(Type destType, MemberInfo srcInfo)
+        public Func<object, object> FindToDbConverter(Type destType, MemberInfo srcInfo)
         {
             var key = new { DestType = destType, SrcInfo = srcInfo };
             return ToDbConverterCache.Get(key, () => Find(x => x.GetToDbConverter(destType, srcInfo)));

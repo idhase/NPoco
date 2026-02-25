@@ -11,10 +11,10 @@ namespace NPoco.Linq
     {
         private readonly IDatabase _database;
         private readonly PocoData _pocoData;
-        private readonly SqlExpression<T> _sqlExpression;
+        private readonly ISqlExpression<T> _sqlExpression;
         private readonly Dictionary<string, JoinData> _joinSqlExpressions;
 
-        public ComplexSqlBuilder(IDatabase database, PocoData pocoData, SqlExpression<T> sqlExpression, Dictionary<string, JoinData> joinSqlExpressions)
+        public ComplexSqlBuilder(IDatabase database, PocoData pocoData, ISqlExpression<T> sqlExpression, Dictionary<string, JoinData> joinSqlExpressions)
         {
             _database = database;
             _pocoData = pocoData;
@@ -38,8 +38,27 @@ namespace NPoco.Linq
             var sql = BuildJoin(_database, _sqlExpression, _joinSqlExpressions.Values.ToList(), selectMembers, false, distinct);
             return sql;
         }
+                
+        public Sql GetSqlForProjection<T2>(Expression<Func<T, T2>> projectionExpression, bool distinct, int skip, int rows)
+        {
+            var selectMembers = _database.DatabaseType.ExpressionVisitor<T>(_database, _pocoData).SelectProjection(projectionExpression);
 
-        public Sql BuildJoin(IDatabase database, SqlExpression<T> sqlExpression, List<JoinData> joinSqlExpressions, List<SelectMember> newMembers, bool count, bool distinct)
+            ((ISqlExpression)_sqlExpression).SelectMembers.Clear();
+            ((ISqlExpression)_sqlExpression).SelectMembers.AddRange(selectMembers);
+
+            _sqlExpression.Limit(skip, rows);
+
+            if (!_joinSqlExpressions.Any())
+            {
+                var finalsql = ((ISqlExpression)_sqlExpression).ApplyPaging(_sqlExpression.Context.ToSelectStatement(false, distinct), selectMembers.Select(x => x.PocoColumns), _joinSqlExpressions);
+                return new Sql(finalsql, _sqlExpression.Context.Params);
+            }
+
+            var sql = BuildJoin(_database, _sqlExpression, _joinSqlExpressions.Values.ToList(), selectMembers, false, distinct);
+            return sql;
+        }
+
+        public Sql BuildJoin(IDatabase database, ISqlExpression<T> sqlExpression, List<JoinData> joinSqlExpressions, List<SelectMember> newMembers, bool count, bool distinct)
         {
             var modelDef = _pocoData;
             var sqlTemplate = count
