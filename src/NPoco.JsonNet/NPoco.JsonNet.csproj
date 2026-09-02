@@ -5,6 +5,7 @@
     <VersionPrefix>5.8.0</VersionPrefix>
     <TargetFrameworks>net462;netstandard2.0;netstandard2.1</TargetFrameworks>
     <VersionPrefix>6.2.0</VersionPrefix>
+    <VersionPrefix>6.3.0</VersionPrefix>
     <TargetFrameworks>net462;netstandard2.0;netstandard2.1;net8.0;net10.0</TargetFrameworks>
     <AssemblyName>NPoco.JsonNet</AssemblyName>
     <PackageId>NPoco.JsonNet</PackageId>
@@ -24,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
 </Project>

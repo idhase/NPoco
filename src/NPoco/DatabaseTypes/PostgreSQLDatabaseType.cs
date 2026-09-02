@@ -1,4 +1,5 @@
 using NPoco.Expressions;
+using System;
 using System.Data;
 using System.Data.Common;
 using System.Threading;
@@ -8,6 +9,9 @@ namespace NPoco.DatabaseTypes
 {
     public class PostgreSQLDatabaseType : DatabaseType
     {
+        /// <inheritdoc cref="ISqlDialectProvider.SqlDialect"/>
+        public override ISqlDialect SqlDialect => PostgreSqlDialect.Instance;
+
         public override ISqlExpression<T> ExpressionVisitor<T>(IDatabase db, PocoData pocoData, bool prefixTableName)
         {
             return new PostgreSQLExpression<T>(db, pocoData, prefixTableName);
@@ -19,6 +23,26 @@ namespace NPoco.DatabaseTypes
             if (value is bool) return value;
 
             return base.MapParameterValue(value);
+        }
+
+        public override void SetParameterValue(DbParameter p, object value)
+        {
+            base.SetParameterValue(p, value);
+
+            // Npgsql maps DbType.DateTime to NpgsqlDbType.TimestampTz regardless of the value's Kind
+            // (when EnableLegacyTimestampBehavior is off), which throws for Unspecified/Local DateTimes
+            // against a "timestamp with time zone" column. Pick the right NpgsqlDbType from Kind instead.
+            // See https://github.com/schotime/NPoco/issues/715
+            if (value is DateTime dateTime && p.GetType().Name == "NpgsqlParameter")
+            {
+                var npgsqlDbTypeProperty = ReflectionCache.GetProperty(p.GetType(), "NpgsqlDbType");
+                if (npgsqlDbTypeProperty != null)
+                {
+                    var enumName = dateTime.Kind == DateTimeKind.Utc ? "TimestampTz" : "Timestamp";
+                    var enumValue = ReflectionCache.GetEnumValue(npgsqlDbTypeProperty.PropertyType, enumName);
+                    ReflectionCache.GetSetter(p.GetType(), "NpgsqlDbType")(p, enumValue);
+                }
+            }
         }
 
         public override string EscapeSqlIdentifier(string str)
