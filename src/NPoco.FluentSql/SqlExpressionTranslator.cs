@@ -469,6 +469,7 @@ namespace NPoco.FluentSql
             if (column.ColumnType == typeof(string) && IsEnum(column.MemberInfoData.MemberType) && value != null)
                 return EnumName(column.MemberInfoData.MemberType, value);
             if (column.ColumnType == typeof(AnsiString) && value is string) return new AnsiString((string)value);
+            if (column.ColumnType == typeof(LegacyDateTime) && value is DateTime) return new LegacyDateTime((DateTime)value);
             if ((column.MemberInfoData.MemberType == typeof(char) || column.MemberInfoData.MemberType == typeof(char?)) && value is int)
                 return Convert.ToChar(value, CultureInfo.InvariantCulture);
             return _database.DatabaseType.ProcessDefaultMappings(column, value);

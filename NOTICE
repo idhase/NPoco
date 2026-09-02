@@ -1,0 +1,64 @@
+NPoco
+Copyright (c) Adam Schroder and NPoco contributors
+https://github.com/schotime/NPoco
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full text.
+
+===============================================================================
+
+This distribution is Idha.NPoco, an unofficial fork maintained by Idha:
+
+    https://github.com/idhase/NPoco
+
+It is not affiliated with, nor endorsed by, the NPoco project. The assembly is
+still named NPoco.dll, so Idha.NPoco cannot be installed alongside the official
+NPoco package.
+
+-------------------------------------------------------------------------------
+Modifications to files from the upstream project
+-------------------------------------------------------------------------------
+
+This release changes two upstream files, adding 20 lines and widening three method
+signatures. No upstream code is removed or rewritten.
+
+src/NPoco/Expressions/SqlExpression.cs
+
+    Widened FlattenList from private to protected, and FormatParameters and
+    BuildInStatement from private to protected virtual, so that a
+    database-specific expression can override IN clause generation. Added a
+    protected GetColumnType helper. None of this changes behaviour.
+
+    Added a branch to VisitBinary that wraps a DateTime compared against a
+    LegacyDateTime column, mirroring the AnsiString branch immediately above
+    it. This branch is reachable only for a column declared as LegacyDateTime,
+    a type that does not exist upstream.
+
+src/NPoco.FluentSql/SqlExpressionTranslator.cs
+
+    Added the same LegacyDateTime wrap to Parameter, next to the existing
+    AnsiString wrap, so FluentSql and the LINQ provider agree. Reachable only
+    for a column declared as LegacyDateTime.
+
+Earlier fork releases also diverge from upstream in these files:
+
+    src/NPoco/NPoco.csproj
+    src/NPoco.SqlServer/NPoco.SqlServer.csproj
+    src/NPoco.SqlServer.SystemData/NPoco.SqlServer.SystemData.csproj
+    test/NPoco.Tests/NPoco.Tests.csproj
+        Dependency version bumps and whitespace.
+
+Every other change in this fork lives in files that do not exist upstream:
+
+    Directory.Build.targets
+    NOTICE
+    CHANGELOG.md
+    src/NPoco.Abstractions/LegacyDateTime.cs
+    src/NPoco.SqlServer/SqlServer2016Expression.cs
+    src/NPoco.SqlServer/InListJson.cs
+    src/NPoco.SqlServer/DatabaseTypes/SqlServer2016DatabaseType.cs
+    test/NPoco.Tests/SqlServer2016ExpressionTests.cs
+    test/NPoco.Tests/FluentSql/FluentSqlMarkerColumnTests.cs
+
+These add OPENJSON-based IN clause generation for SQL Server 2016 and later,
+used only when SqlServer2016DatabaseType is selected, and the LegacyDateTime
+marker type.

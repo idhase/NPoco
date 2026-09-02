@@ -3,10 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
-using NPoco.fastJSON;
 using NPoco.Internal;
 using NPoco.Linq;
 
@@ -791,6 +791,16 @@ namespace NPoco.Expressions
                 {
                     left = CreateParam(new AnsiString((string)left));
                 }
+                // LegacyDateTime: a datetime column, whose 1/300s ticks never compare equal
+                // to a datetime2 parameter. Wrapping picks DbType.DateTime instead.
+                else if (isLeftMemberAccessString && right is DateTime && leftMemberAccessString.PocoColumn.ColumnType == typeof(LegacyDateTime))
+                {
+                    right = CreateParam(new LegacyDateTime((DateTime)right));
+                }
+                else if (isRightMemberAccessString && left is DateTime && rightMemberAccessString.PocoColumn.ColumnType == typeof(LegacyDateTime))
+                {
+                    left = CreateParam(new LegacyDateTime((DateTime)left));
+                }
                 // ValueObject
                 else if (isLeftMemberAccessString && leftMemberAccessString.PocoColumn.ValueObjectColumn)
                 {
@@ -1239,7 +1249,7 @@ namespace NPoco.Expressions
             }
         }
 
-        private StringBuilder FlattenList(List<object> inArgs, object partialSqlString)
+        protected StringBuilder FlattenList(List<object> inArgs, object partialSqlString)
         {
             var sIn = new StringBuilder();
             foreach (object e in inArgs)
@@ -1262,7 +1272,7 @@ namespace NPoco.Expressions
             return sIn;
         }
 
-        private object FormatParameters(object partialSqlString, object e)
+        protected virtual object FormatParameters(object partialSqlString, object e)
         {
             switch (partialSqlString)
             {
@@ -1277,7 +1287,7 @@ namespace NPoco.Expressions
             return e;
         }
 
-        private Type GetColumnType(object partialSqlString)
+        protected Type GetColumnType(object partialSqlString)
         {
             return partialSqlString switch
             {
@@ -1475,13 +1485,14 @@ namespace NPoco.Expressions
             return sqlPage;
         }
 
-        private string BuildInStatement(Expression m, object quotedColName)
+        protected virtual string BuildInStatement(Expression m, object quotedColName)
         {
             var member = Expression.Convert(m, typeof(object));
             var lambda = Expression.Lambda<Func<object>>(member);
             var getter = lambda.Compile();
 
-            quotedColName ??= Visit(m);
+            if (quotedColName == null)
+                quotedColName = Visit(m);
 
             var inArgs = ((IEnumerable)getter()).Cast<object>().ToList();
             if (inArgs.Count == 0)
@@ -1489,90 +1500,9 @@ namespace NPoco.Expressions
                 return "1 = 0";
             }
 
-            var sIn = new StringBuilder();
-
-            var columnType = GetColumnType(quotedColName);
-
-            if (TypeSupportedAsJson(columnType) && inArgs.Count > 5)
-            {
-                if (columnType.IsEnum)
-                {
-                    columnType = Enum.GetUnderlyingType(columnType);
-
-                    inArgs = inArgs.Select(x => Convert.ChangeType(x, columnType)).ToList();
-                }
-                var databaseString = GetDatabaseType(columnType);
-                var paramPlaceholder = CreateParam(JSON.ToJSON(inArgs, new JSONParameters
-                {
-                    UseFastGuid = false
-                }));
-                var text = $"SELECT [s0].[value] FROM OPENJSON({paramPlaceholder}) WITH ([value] {databaseString} '$') AS [s0]";
-                sIn.Append(text);
-            }
-            else
-            {
-                inArgs = RepeatFirstItem(inArgs);
-                sIn.Append(FlattenList(inArgs, quotedColName));
-            }
-
-            var statement = $"{quotedColName} IN ({sIn})";
+            var sIn = FlattenList(inArgs, quotedColName);
+            var statement = string.Format("{0} {1} ({2})", quotedColName, "IN", sIn);
             return statement;
-        }
-
-
-        /// <summary>
-        /// Repeats the first item in the list to match the specified count.
-        /// </summary>
-        /// <typeparam name="TS">The type of the items in the list.</typeparam>
-        /// <param name="list">The list to repeat the first item from.</param>
-        /// <returns>A new list with the first item repeated to match the specified count.</returns>
-        private static List<TS> RepeatFirstItem<TS>(List<TS> list)
-        {
-            var max = Math.Min(GetNextPowerOfTwo(Math.Max(5, list.Count)), 2000);
-
-            if (list.Count >= max)
-                return list;
-
-            var repeated = new List<TS>(max);
-            for (var i = 0; i < max; i++)
-                repeated.Add(list[i % list.Count]);
-
-            return repeated;
-        }
-
-        /// <summary>
-        /// Gets the next power of two for the given input.
-        /// </summary>
-        /// <param name="input">The input value.</param>
-        /// <returns>The next power of two.</returns>
-        private static int GetNextPowerOfTwo(int input)
-        {
-            var log = Math.Log(input, 2);
-            var logRoundedUp = Math.Ceiling(log);
-            return (int)Math.Pow(2, logRoundedUp);
-        }
-
-        private static bool TypeSupportedAsJson(Type type)
-        {
-            return type == typeof(int) || type == typeof(long) || type == typeof(string) || type == typeof(Guid) || (type.IsEnum && TypeSupportedAsJson(Enum.GetUnderlyingType(type)));
-        }
-
-        private static string GetDatabaseType(Type type)
-        {
-            if (type == typeof(int))
-                return "int";
-            if (type == typeof(long))
-                return "bigint";
-            if (type == typeof(string))
-                return "nvarchar(max)";
-            if (type == typeof(Guid))
-                return "uniqueidentifier";
-            if (type == typeof(short))
-                return "smallint";
-            if (type == typeof(byte))
-                return "tinyint";
-
-            return null;
         }
 
         protected virtual object VisitSqlMethodCall(MethodCallExpression m)
