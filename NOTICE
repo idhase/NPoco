@@ -18,7 +18,7 @@ NPoco package.
 Modifications to files from the upstream project
 -------------------------------------------------------------------------------
 
-This release changes two upstream files, adding 20 lines and widening three method
+This release changes two upstream files, adding 28 lines and widening three method
 signatures. No upstream code is removed or rewritten.
 
 src/NPoco/Expressions/SqlExpression.cs
@@ -32,6 +32,13 @@ src/NPoco/Expressions/SqlExpression.cs
     LegacyDateTime column, mirroring the AnsiString branch immediately above
     it. This branch is reachable only for a column declared as LegacyDateTime,
     a type that does not exist upstream.
+
+    Added a branch to VisitBinary that sends an enum compared against an
+    AnsiString column as its name wrapped in AnsiString, mirroring the string
+    branch immediately above it. Upstream sends that enum as an int, so SQL
+    Server converts the varchar column to int and the query fails. This changes
+    behaviour for every database type, but only for an enum column declared as
+    AnsiString, which upstream cannot query today.
 
 src/NPoco.FluentSql/SqlExpressionTranslator.cs
 

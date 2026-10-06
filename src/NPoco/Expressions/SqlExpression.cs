@@ -744,6 +744,8 @@ namespace NPoco.Expressions
                     var pc = leftEnumMemberAccess.PocoColumn;
                     if (pc.ColumnType == typeof(string))
                         right = CreateParam(Enum.Parse(GetMemberInfoTypeForEnum(pc), right.ToString()).ToString());
+                    else if (pc.ColumnType == typeof(AnsiString))
+                        right = CreateParam(new AnsiString(Enum.Parse(GetMemberInfoTypeForEnum(pc), right.ToString()).ToString()));
                     else if (Int64.TryParse(right.ToString(), out long numvericVal))
                         right = CreateParam(Enum.ToObject(GetMemberInfoTypeForEnum(pc), numvericVal));
                     else
@@ -754,6 +756,8 @@ namespace NPoco.Expressions
                     var pc = rightEnumMemberAccess.PocoColumn;
                     if (pc.ColumnType == typeof(string))
                         left = CreateParam(Enum.Parse(GetMemberInfoTypeForEnum(pc), left.ToString()).ToString());
+                    else if (pc.ColumnType == typeof(AnsiString))
+                        left = CreateParam(new AnsiString(Enum.Parse(GetMemberInfoTypeForEnum(pc), left.ToString()).ToString()));
                     else if (Int64.TryParse(left.ToString(), out long numvericVal))
                         left = CreateParam(Enum.ToObject(GetMemberInfoTypeForEnum(pc), numvericVal));
                     else

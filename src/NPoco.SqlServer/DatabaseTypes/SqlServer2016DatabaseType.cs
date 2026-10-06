@@ -66,6 +66,28 @@ namespace NPoco.DatabaseTypes
             base.SetParameterValue(p, value);
         }
 
+        /// <inheritdoc />
+        public override object ProcessDefaultMappings(PocoColumn pocoColumn, object value)
+        {
+            // Core NPoco writes an enum by name only when the column type is string. On an
+            // AnsiString column it would go out as an int, so SQL Server converts the varchar
+            // column to int (failing on every stored name) and an insert stores the number.
+            // FluentSql hands over a comparison against an enum member as the underlying integer,
+            // because the compiler erases the enum in the expression tree, so read that back first.
+            if (value != null && pocoColumn.ColumnType == typeof(AnsiString) && Database.IsEnum(pocoColumn.MemberInfoData))
+            {
+                if (!(value is Enum) && !(value is string))
+                {
+                    var enumType = Nullable.GetUnderlyingType(pocoColumn.MemberInfoData.MemberType) ?? pocoColumn.MemberInfoData.MemberType;
+                    value = Enum.ToObject(enumType, value);
+                }
+
+                return new AnsiString(value.ToString());
+            }
+
+            return base.ProcessDefaultMappings(pocoColumn, value);
+        }
+
         public new static Database Create(string connectionString)
         {
             return new Database(connectionString, new SqlServer2016DatabaseType(), SqlClientFactory.Instance);

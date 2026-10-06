@@ -105,6 +105,9 @@ namespace NPoco.SqlServer
         // nvarchar to varchar columns. That makes the column side convert and turns an
         // Index Seek into an Index Scan. Wrap here so the parameterised IN path matches
         // the column type, as the OPENJSON path already does via _sqlServerTypeMap.
+        // An enum on an AnsiString column is stored by name, but base passes it through
+        // unchanged: as an int on the parameterised path, which makes SQL Server convert the
+        // varchar column to int, and unserialisable on the OPENJSON path.
         protected override object FormatParameters(object partialSqlString, object e)
         {
             var value = base.FormatParameters(partialSqlString, e);
@@ -113,6 +116,9 @@ namespace NPoco.SqlServer
 
             if (value is string s && columnType == typeof(AnsiString))
                 return new AnsiString(s);
+
+            if (value is Enum && columnType == typeof(AnsiString))
+                return new AnsiString(value.ToString());
 
             if (value is DateTime d && columnType == typeof(LegacyDateTime))
                 return new LegacyDateTime(d);

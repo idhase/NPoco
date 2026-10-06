@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.0.1] - 2026-10-06
+
+### Fixed
+
+An enum property on a `varchar` column declared `AnsiString` (`[ColumnType(typeof(AnsiString))]`
+or `WithDbType<AnsiString>()`) reached SQL Server as an int. Core NPoco writes an enum by name
+only when the column type is `string`. SQL Server then converted the column side to int, so
+every lookup, update, delete and LINQ filter on that column failed with "Conversion failed when
+converting the varchar value 'Html' to data type int", and an insert quietly stored the number.
+An `IN` list of 32 or more such enums threw `NotSupportedException` from `InListJson`.
+
+The enum is now sent as its name in an `AnsiString`, so the parameter is `varchar` and the
+index seek survives:
+
+- CRUD and FluentSql: `SqlServer2016DatabaseType.ProcessDefaultMappings`. FluentSql hands
+  over an enum comparison as the underlying integer, which is read back as the enum first.
+- LINQ `IN`, both the parameterised and the OPENJSON path: `SqlServer2016Expression.FormatParameters`.
+- LINQ `==`: a new branch in `VisitBinary` in `SqlExpression.cs`, the only path without a
+  database type hook. See `NOTICE`.
+
+An enum inside an anonymous primary key object (`SingleById<T>(new { Type = MyEnum.A })`) is
+still sent as an int. Upstream never maps anonymous key values, for `string` columns either.
+
+Covered by `EnumAnsiStringTests`, which runs against SQL Server (TestDBType 2 or 3) and is
+ignored on other test databases.
+
 ## [1.0.0] - 2026-09-03
 
 First release of the fork. Two features: an OPENJSON rewrite for large `IN` lists, and a
