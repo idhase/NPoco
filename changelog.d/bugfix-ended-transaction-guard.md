@@ -4,3 +4,8 @@
 - A transaction committed elsewhere has no `Connection` either. Code that hands a database an external transaction with `SetTransaction` and keeps using the database after the owner committed must call `SetTransaction(null)` first; `CompleteTransaction` on such a database now throws instead of doing nothing. Idha.Rebus.NPoco does this from the version that requires Idha.NPoco 1.1.0, so bump the two together: with an older Idha.Rebus.NPoco, `OnTransactionCommit` callbacks that write through the handler's database throw.
 - Upstream `Database.cs` gains 7 lines (two calls); the checks live in the new `DatabaseEndedTransaction.cs`. NOTICE updated.
 - Files: `src/NPoco/Database.cs`, `src/NPoco/DatabaseEndedTransaction.cs` (new), `test/NPoco.Tests/DecoratedTests/EndedTransactionTests.cs` (new), `NOTICE`, `Directory.Build.targets`
+
+## [2026-11-17 10:29]
+- From Copilot's review: the guard now sits inside the delegates handed to `ExecutionHook`/`ExecutionHookAsync`, so a retry policy there (`SqlServerDatabase` with `DefaultPollyPolicy` retries a deadlock) runs it again instead of running the command without the transaction. It used to run once, in `DoPreExecute`.
+- `CompleteTransaction` checks the transaction before the aborted-inner-scope branch. Code that caught the error around an inner scope left it disposed without `Complete`, and the outer `CompleteTransaction` returned successfully for work SQL Server had already rolled back.
+- Files: `src/NPoco/Database.cs`, `src/NPoco/AsyncDatabase.cs`, `test/NPoco.Tests/DecoratedTests/EndedTransactionTests.cs`, `NOTICE`

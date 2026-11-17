@@ -633,7 +633,7 @@ namespace NPoco
         internal async Task<int> ExecuteNonQueryHelperAsync(DbCommand cmd, CancellationToken cancellationToken = default)
         {
             DoPreExecute(cmd);
-            var result = await ExecutionHookAsync((ct) => _dbType.ExecuteNonQueryAsync(this, cmd, ct), cancellationToken).ConfigureAwait(false);
+            var result = await ExecutionHookAsync((ct) => { ThrowIfTransactionEnded(); return _dbType.ExecuteNonQueryAsync(this, cmd, ct); }, cancellationToken).ConfigureAwait(false);
             OnExecutedCommandInternal(cmd);
             return result;
         }
@@ -641,7 +641,7 @@ namespace NPoco
         internal async Task<object> ExecuteScalarHelperAsync(DbCommand cmd, CancellationToken cancellationToken = default)
         {
             DoPreExecute(cmd);
-            var result = await ExecutionHookAsync((ct) => _dbType.ExecuteScalarAsync(this, cmd, ct), cancellationToken).ConfigureAwait(false);
+            var result = await ExecutionHookAsync((ct) => { ThrowIfTransactionEnded(); return _dbType.ExecuteScalarAsync(this, cmd, ct); }, cancellationToken).ConfigureAwait(false);
             OnExecutedCommandInternal(cmd);
             return result;
         }
@@ -649,7 +649,7 @@ namespace NPoco
         internal async Task<DbDataReader> ExecuteReaderHelperAsync(DbCommand cmd, CancellationToken cancellationToken = default)
         {
             DoPreExecute(cmd);
-            var reader = await ExecutionHookAsync((ct) => _dbType.ExecuteReaderAsync(this, cmd, ct), cancellationToken).ConfigureAwait(false);
+            var reader = await ExecutionHookAsync((ct) => { ThrowIfTransactionEnded(); return _dbType.ExecuteReaderAsync(this, cmd, ct); }, cancellationToken).ConfigureAwait(false);
             OnExecutedCommandInternal(cmd);
             return reader;
         }

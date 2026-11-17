@@ -242,6 +242,42 @@ namespace NPoco.Tests.DecoratedTests
         }
 
         [Test]
+        [Description("Code that catches the error around an inner scope leaves it disposed without Complete, which marks the transaction aborted")]
+        public void OuterCompleteThrowsAfterAnInnerScopeWasDisposedWithoutCompleting()
+        {
+            using var db = NewDatabase();
+            db.BeginTransaction();
+
+            var inner = db.GetTransaction();
+            Doom(db, DoomWithXactAbort);
+            inner.Dispose();
+
+            Assert.Throws<InvalidOperationException>(() => db.CompleteTransaction());
+            Assert.IsNull(db.Transaction);
+        }
+
+        [Test]
+        [Description("A retry policy in ExecutionHook runs the command again after the deadlock that ended the transaction")]
+        public void ARetriedCommandThrowsOnceTheServerHasRolledBackTheTransaction()
+        {
+            using var db = new RetryingDatabase(_connectionString);
+            db.BeginTransaction();
+
+            Assert.Throws<InvalidOperationException>(() => db.Execute("SET XACT_ABORT ON; INSERT INTO EndedTransactionRows (Value) VALUES ('retried'); SELECT 1/0"));
+            Assert.AreEqual(0, CountRows());
+        }
+
+        [Test]
+        public void ARetriedAsyncCommandThrowsOnceTheServerHasRolledBackTheTransaction()
+        {
+            using var db = new RetryingDatabase(_connectionString);
+            db.BeginTransaction();
+
+            Assert.ThrowsAsync<InvalidOperationException>(() => db.ExecuteAsync("SET XACT_ABORT ON; INSERT INTO EndedTransactionRows (Value) VALUES ('retried'); SELECT 1/0"));
+            Assert.AreEqual(0, CountRows());
+        }
+
+        [Test]
         public void AbortTransactionStaysSilent()
         {
             using var db = NewDatabase();
@@ -293,6 +329,38 @@ namespace NPoco.Tests.DecoratedTests
         {
             public int Id { get; set; }
             public string Value { get; set; }
+        }
+
+        // Retries a command once after a SqlException, like SqlServerDatabase with a Polly policy does for a deadlock
+        class RetryingDatabase : Database
+        {
+            public RetryingDatabase(string connectionString) : base(connectionString, NPoco.DatabaseType.SqlServer2012, SqlClientFactory.Instance)
+            {
+            }
+
+            protected override T ExecutionHook<T>(Func<T> action)
+            {
+                try
+                {
+                    return action();
+                }
+                catch (SqlException)
+                {
+                    return action();
+                }
+            }
+
+            protected override async Task<T> ExecutionHookAsync<T>(Func<System.Threading.CancellationToken, Task<T>> action, System.Threading.CancellationToken cancellationToken = default)
+            {
+                try
+                {
+                    return await action(cancellationToken);
+                }
+                catch (SqlException)
+                {
+                    return await action(cancellationToken);
+                }
+            }
         }
 
         class RecordingTransactionInterceptor : ITransactionInterceptor
