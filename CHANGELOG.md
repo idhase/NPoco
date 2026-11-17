@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.1.0] - 2026-11-17
+
+### Fixed
+
+A database whose transaction had ended under it kept going and committed work on its own. SQL
+Server rolls a transaction back by itself after a deadlock, an error under `XACT_ABORT` or an
+error in a trigger. SqlClient then clears the transaction's `Connection`, and a command given
+that transaction runs with no transaction at all. Code that caught the `SqlException` and
+carried on committed its later writes while the earlier ones were gone, and `CompleteTransaction`
+skipped the commit silently, so the caller reported success.
+
+- Every command NPoco runs (sync and async `Execute`, queries, `Insert`, `Update`, `Delete`,
+  stored procedures) throws an `InvalidOperationException` before it runs when the transaction
+  has ended. The check sits inside the delegates handed to `ExecutionHook`/`ExecutionHookAsync`,
+  so a retry policy there (`SqlServerDatabase` with `DefaultPollyPolicy` retries a deadlock)
+  runs it again. A command from the public `CreateCommand` that the caller executes itself
+  isn't covered.
+- `CompleteTransaction`/`CompleteTransactionAsync` throw an `InvalidOperationException` instead
+  of skipping the commit, also when an inner scope was disposed without `Complete`. They forget
+  the transaction and fire the abort interceptors (they used to fire the complete ones), without
+  closing and reopening the connection, so a connection passed in by the caller keeps its
+  session. The database can begin a new transaction afterwards.
+- `AbortTransaction` stays silent. `InsertBulk` needed no change: `SqlBulkCopy` already refuses
+  an ended transaction.
+
+A database with no transaction is unaffected. The checks live in the new
+`DatabaseEndedTransaction.cs`; `Database.cs` and `AsyncDatabase.cs` only gain the calls (see
+`NOTICE`). Covered by `EndedTransactionTests`, which runs against SQL Server (TestDBType 2 or 3)
+and is ignored on other test databases.
+
+### Upgrading
+
+A transaction committed elsewhere has no `Connection` either. Code that passes an external
+transaction with `SetTransaction` and keeps using the database after the owner committed must
+call `SetTransaction(null)` first; `CompleteTransaction` on such a database now throws instead of
+doing nothing. Idha.Rebus.NPoco does this from 3.0.10. Whatever brings Idha.NPoco 1.1.0 into a
+service (including Idha.AspNet.NPoco 3.0.5 or Idha.Common.NPoco 3.0.2), Idha.Rebus.NPoco must be
+3.0.10 or later, or `OnTransactionCommit` callbacks that write through the handler's database
+throw.
+
 ## [1.0.1] - 2026-10-06
 
 ### Fixed
