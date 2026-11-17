@@ -574,6 +574,11 @@ namespace NPoco
             if (TransactionCount >= 1)
                 return;
 
+            if (!TransactionIsOk())
+            {
+                await ForgetTransactionAndThrowCannotCommit(sync, cancellationToken);
+            }
+
             if (TransactionIsAborted)
             {
                 if (sync)
@@ -2011,7 +2016,7 @@ namespace NPoco
         internal int ExecuteNonQueryHelper(DbCommand cmd)
         {
             DoPreExecute(cmd);
-            var result = ExecutionHook(() => cmd.ExecuteNonQuery());
+            var result = ExecutionHook(() => { ThrowIfTransactionEnded(); return cmd.ExecuteNonQuery(); });
             OnExecutedCommandInternal(cmd);
             return result;
         }
@@ -2019,7 +2024,7 @@ namespace NPoco
         internal object ExecuteScalarHelper(DbCommand cmd)
         {
             DoPreExecute(cmd);
-            var result = ExecutionHook(() => cmd.ExecuteScalar());
+            var result = ExecutionHook(() => { ThrowIfTransactionEnded(); return cmd.ExecuteScalar(); });
             OnExecutedCommandInternal(cmd);
             return result!;
         }
@@ -2027,7 +2032,7 @@ namespace NPoco
         internal DbDataReader ExecuteReaderHelper(DbCommand cmd)
         {
             DoPreExecute(cmd);
-            var result = ExecutionHook(() => cmd.ExecuteReader());
+            var result = ExecutionHook(() => { ThrowIfTransactionEnded(); return cmd.ExecuteReader(); });
             OnExecutedCommandInternal(cmd);
             return result!;
         }

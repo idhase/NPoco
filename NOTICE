@@ -18,8 +18,28 @@ NPoco package.
 Modifications to files from the upstream project
 -------------------------------------------------------------------------------
 
-This release changes two upstream files, adding 28 lines and widening three method
-signatures. No upstream code is removed or rewritten.
+This release changes four upstream files, adding 33 lines, extending six
+one-line delegates and widening three method signatures. No upstream code is
+removed.
+
+src/NPoco/Database.cs
+src/NPoco/AsyncDatabase.cs
+
+    The six delegates that ExecuteNonQueryHelper, ExecuteScalarHelper and
+    ExecuteReaderHelper (sync and async) hand to ExecutionHook first throw an
+    InvalidOperationException when the database holds a transaction whose
+    Connection is null. The check sits inside the delegate so a retry policy
+    in ExecutionHook runs it again. CompleteTransaction throws when the
+    transaction can't be committed instead of skipping the commit silently,
+    also when an inner scope was aborted. It forgets the transaction and fires
+    the abort interceptors first, without closing and reopening the
+    connection. SQL Server rolls a transaction back by itself after a
+    deadlock, an error under XACT_ABORT or an error in a trigger, and a
+    command given that transaction then runs with no transaction and commits
+    on its own. The checks live in DatabaseEndedTransaction.cs, so the
+    upstream files only gain the calls. This changes behaviour for every
+    provider that clears DbTransaction.Connection once a transaction has
+    ended, but only then.
 
 src/NPoco/Expressions/SqlExpression.cs
 
@@ -69,3 +89,9 @@ Every other change in this fork lives in files that do not exist upstream:
 These add OPENJSON-based IN clause generation for SQL Server 2016 and later,
 used only when SqlServer2016DatabaseType is selected, and the LegacyDateTime
 marker type.
+
+    src/NPoco/DatabaseEndedTransaction.cs
+    test/NPoco.Tests/DecoratedTests/EndedTransactionTests.cs
+
+These hold the checks Database.cs calls for a transaction that has ended under
+the database, described above, and their tests.
