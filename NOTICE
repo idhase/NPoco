@@ -18,8 +18,21 @@ NPoco package.
 Modifications to files from the upstream project
 -------------------------------------------------------------------------------
 
-This release changes two upstream files, adding 28 lines and widening three method
+This release changes three upstream files, adding 35 lines and widening three method
 signatures. No upstream code is removed or rewritten.
+
+src/NPoco/Database.cs
+
+    DoPreExecute throws an InvalidOperationException when the database holds a
+    transaction whose Connection is null, and CompleteTransaction throws when
+    the transaction can't be committed instead of skipping the commit silently.
+    It forgets the transaction and fires the abort interceptors first, without
+    closing and reopening the connection. SQL Server rolls a transaction back by itself after a
+    deadlock, an error under XACT_ABORT or an error in a trigger, and a command
+    given that transaction then runs with no transaction and commits on its
+    own. The two checks live in DatabaseEndedTransaction.cs, so Database.cs
+    only gains the calls. This changes behaviour for every provider that clears
+    DbTransaction.Connection once a transaction has ended, but only then.
 
 src/NPoco/Expressions/SqlExpression.cs
 
@@ -69,3 +82,9 @@ Every other change in this fork lives in files that do not exist upstream:
 These add OPENJSON-based IN clause generation for SQL Server 2016 and later,
 used only when SqlServer2016DatabaseType is selected, and the LegacyDateTime
 marker type.
+
+    src/NPoco/DatabaseEndedTransaction.cs
+    test/NPoco.Tests/DecoratedTests/EndedTransactionTests.cs
+
+These hold the checks Database.cs calls for a transaction that has ended under
+the database, described above, and their tests.

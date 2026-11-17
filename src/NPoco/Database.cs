@@ -587,6 +587,11 @@ namespace NPoco
                 return;
             }
 
+            if (!TransactionIsOk())
+            {
+                await ForgetTransactionAndThrowCannotCommit(sync, cancellationToken);
+            }
+
             if (TransactionIsOk())
             {
                 if (sync)
@@ -1953,6 +1958,8 @@ namespace NPoco
             {
                 cmd.CommandTimeout = CommandTimeout;
             }
+
+            ThrowIfTransactionEnded();
 
             // Call hook
             OnExecutingCommandInternal(cmd);
